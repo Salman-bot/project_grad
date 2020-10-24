@@ -170,7 +170,7 @@ static void StartThread(void const * argument)
 
   /* Send Function */
 
-  osThreadDef(SendB, SendB_f, osPriorityNormal, 0, configMINIMAL_STACK_SIZE);
+  osThreadDef(SendB, SendB_f, osPriorityRealtime, 0, configMINIMAL_STACK_SIZE);
   osThreadCreate (osThread(SendB), NULL);
 
 
