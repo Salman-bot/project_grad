@@ -69,11 +69,13 @@ struct link_str link_arg;
 /* Private function prototypes -----------------------------------------------*/
 static void SystemClock_Config(void);
 static void StartThread(void const * argument);
+static void SecondThread(void const * argument);
 static void ToggleLed4(void const * argument);
 static void BSP_Config(void);
 static void Netif_Config(void);
 static void Error_Handler(void);
 static void SendB_f(void const * argument);
+
 /* Private functions ---------------------------------------------------------*/
 
 /**
@@ -94,18 +96,29 @@ int main(void)
   /* Configure the system clock to 180 MHz */
   SystemClock_Config();
   
+
   /* Init thread */
 #if defined(__GNUC__)
   osThreadDef(Start, StartThread, osPriorityNormal, 0, configMINIMAL_STACK_SIZE * 5);
+  osThreadDef(Toggle, SecondThread, osPriorityNormal, 0, configMINIMAL_STACK_SIZE * 5);
 #else
   osThreadDef(Start, StartThread, osPriorityNormal, 0, configMINIMAL_STACK_SIZE * 2);
 #endif
-  
-  osThreadCreate (osThread(Start), NULL);
-  
+
+
+
+
+
+
+
+   osThreadCreate (osThread(Start), NULL);
+   osThreadCreate (osThread(Toggle), NULL);
+
+
   /* Start scheduler */
-  osKernelStart();
-  
+    osKernelStart(); //used to start task sch
+
+
   /* We should never get here as control is now taken by the scheduler */
   for( ;; );
 }
@@ -115,6 +128,20 @@ int main(void)
   * @param  argument not used
   * @retval None
   */
+static void SecondThread(void const * argument)
+{
+
+	  osThreadDef(LED4, ToggleLed4, osPriorityLow, 0, configMINIMAL_STACK_SIZE);
+	  osThreadCreate (osThread(LED4), NULL);
+
+
+	  for( ;; )
+	  {
+	    /* Delete the Init Thread */
+	    osThreadTerminate(NULL);
+	  }
+}
+
 static void StartThread(void const * argument)
 {
   /* Initialize LCD and LEDs */
@@ -127,8 +154,10 @@ static void StartThread(void const * argument)
   Netif_Config();
   
   /* Initialize webserver demo */
- // http_server_netconn_init();
-  
+
+ //http_server_netconn_init();
+
+
   /* Notify user about the network interface config */
   User_notification(&gnetif);
   
@@ -138,12 +167,14 @@ static void StartThread(void const * argument)
   osThreadCreate (osThread(DHCP), &gnetif);
 #endif
   
-  /* Start toogleLed4 task : Toggle LED4  every 250ms */
-  osThreadDef(LED4, ToggleLed4, osPriorityLow, 0, configMINIMAL_STACK_SIZE);
-  osThreadCreate (osThread(LED4), NULL);
+
+  /* Send Function */
+
   osThreadDef(SendB, SendB_f, osPriorityNormal, 0, configMINIMAL_STACK_SIZE);
-    osThreadCreate (osThread(SendB), NULL);
-  
+  osThreadCreate (osThread(SendB), NULL);
+
+
+
   for( ;; )
   {
     /* Delete the Init Thread */ 
@@ -256,54 +287,64 @@ static void ToggleLed4(void const * argument)
 {
   for( ;; )
   {
-    /* Toggle LED4 each 250ms */
-    BSP_LED_Toggle(LED4);
+    BSP_LED_Toggle(LED1);
     osDelay(250);
   }
 }
 static void SendB_f(void const * argument){
-
-	 struct netconn *conn, *newconn;
+	  struct netconn *conn, *newconn;
 	  err_t err, accept_err, recv_err;
 	  struct netbuf *inbuf;
 	  int result;
 	  char* buf;
-	    char data_stored[] ="Hi";
+	  char data_stored[] ="Hi";
 	  u16_t buflen;
 	  const unsigned char b[] = "ABC";
 	  const unsigned char b1[] = "Hello";
-	  const unsigned char b2[] = "Who is this";
-	  /* Create a new TCP connection handle */
-	  conn = netconn_new(NETCONN_TCP);
-	  err = netconn_bind(conn, NULL, 80);
-	  netconn_listen(conn);
+	  const unsigned char b2[] = "Who";
+
+		  conn = netconn_new(NETCONN_TCP);
+		  err = netconn_bind(conn, NULL, 80);
+		  netconn_listen(conn);
+		  accept_err = netconn_accept(conn, &newconn);
 
 	  for( ;; )
 	  {
-	        /* accept any icoming connection */
-		  accept_err = netconn_accept(conn, &newconn);
+
+
 	        if(accept_err == ERR_OK)
 	        {
-	    	    BSP_LED_Toggle(LED2);
-	    	    netconn_write(newconn, b, strlen((char*)b), NETCONN_COPY );
-	    	    osDelay(250);
 
+	    	    netconn_write(newconn, b, strlen((char*)b), NETCONN_NOFLAG );
+	    	    osDelay(750);
 	    	    recv_err = netconn_recv(newconn, &inbuf);
+
+
 	    	    if (recv_err == ERR_OK){
 	    	    	netbuf_data(inbuf, (void**)&buf, &buflen);
 	    	    	result = strcmp(buf, data_stored);
+
+		    	    buf = "";
+		    	    netbuf_free(inbuf);
+		    	    osDelay(1500);
 	    	    	if(result == 0){
-	    	    		netconn_write(newconn, b1, strlen((char*)b1), NETCONN_COPY );
+
+	    	    		netconn_write(newconn, b, strlen((char*)b), NETCONN_NOFLAG );
+	    	    		osDelay(1250);
 	    	    	}
 	    	    	else{
+
 	    	    		netconn_write(newconn, b2, strlen((char*)b2), NETCONN_COPY );
+	    	    		osDelay(1250);
+
 	    	    	}
 	    	    }
+
 	        }
+	        osDelay(1500);
 
 	  }
 }
-
 /**
   * @brief EXTI line detection callbacks
   * @param GPIO_Pin: Specifies the pins connected EXTI line
