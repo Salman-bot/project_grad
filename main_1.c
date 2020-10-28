@@ -111,8 +111,8 @@ int main(void)
 
 
 
-   osThreadCreate (osThread(Start), NULL);
-   osThreadCreate (osThread(Toggle), NULL);
+   osThreadCreate (osThread(Start), NULL); //Thread which contains sending and receiving
+   osThreadCreate (osThread(Toggle), NULL); //Thread Which toggles the LED
 
 
   /* Start scheduler */
@@ -168,7 +168,7 @@ static void StartThread(void const * argument)
 #endif
   
 
-  /* Send Function */
+  /* Send Function (Real Time) */
 
   osThreadDef(SendB, SendB_f, osPriorityRealtime, 0, configMINIMAL_STACK_SIZE);
   osThreadCreate (osThread(SendB), NULL);
@@ -294,55 +294,63 @@ static void ToggleLed4(void const * argument)
 static void SendB_f(void const * argument){
 	  struct netconn *conn, *newconn;
 	  err_t err, accept_err, recv_err;
-	  struct netbuf *inbuf;
+
 	  int result;
 	  char* buf;
 	  char data_stored[] ="Hi";
 	  u16_t buflen;
-	  const unsigned char b[] = "ABC";
-	  const unsigned char b1[] = "Hello";
-	  const unsigned char b2[] = "Who";
+	  const unsigned char data_to_send[] = "ABC"; //Sent first
+	  const unsigned char data_to_send2[] = "Hello"; //Sent if comparing is OK
+	  const unsigned char data_to_send3[] = "Who"; //Sent if comparing is not OK
 
-		  conn = netconn_new(NETCONN_TCP);
-		  err = netconn_bind(conn, NULL, 80);
-		  netconn_listen(conn);
-		  accept_err = netconn_accept(conn, &newconn);
+	  //starting the connection
+	  conn = netconn_new(NETCONN_TCP);
+	  err = netconn_bind(conn, NULL, 80);
+	  netconn_listen(conn);
 
 	  for( ;; )
 	  {
 
-
+		  struct netbuf *inbuf;
+		  //accept incoming connection and store it in newconn
+		  accept_err = netconn_accept(conn, &newconn);
 	        if(accept_err == ERR_OK)
 	        {
+	        		//Send ABC if connected
+	    	   if ( netconn_write(newconn, data_to_send, strlen((char*)data_to_send), NETCONN_COPY ) == ERR_OK)
+	    	   {
+	    	    osDelay(300);
+	    	    	//after we finish receiving data enter if
+	    	    if ( netconn_recv(newconn, &inbuf) == ERR_OK){
+	    	    	 osDelay(300);
 
-	    	    netconn_write(newconn, b, strlen((char*)b), NETCONN_NOFLAG );
-	    	    osDelay(1750);
-	    	    recv_err = netconn_recv(newconn, &inbuf);
-
-
-	    	    if (recv_err == ERR_OK){
-	    	    	netbuf_data(inbuf, (void**)&buf, &buflen);
+	    	    	 //put data inside inbuf into buf char pointer
+	    	    	while (netbuf_data(inbuf, (void**)&buf, &buflen) != ERR_OK ){
+	    	    		osDelay(100);
+	    	    	}
+	    	    	//Delete the buffer
+	    	    	 netbuf_delete(inbuf);
+	    	    	 //comparing if True result=0
 	    	    	result = strcmp(buf, data_stored);
 
-		    	    buf = "";
-		    	    netbuf_free(inbuf);
-
 	    	    	if(result == 0){
-
-	    	    		netconn_write(newconn, b, strlen((char*)b), NETCONN_COPY );
-	    	    		osDelay(1250);
+	    	    		//if comparing is true then send Hello
+	    	    		netconn_write(newconn, data_to_send2, strlen((char*)data_to_send2), NETCONN_COPY );
+	    	    		osDelay(300);
+	    	    		result=0;
 	    	    	}
 	    	    	else{
-
-	    	    		netconn_write(newconn, b2, strlen((char*)b2), NETCONN_COPY );
-	    	    		osDelay(1250);
-
+	    	    		//if comparing is false then send Who
+	    	    		netconn_write(newconn, data_to_send3, strlen((char*)data_to_send3), NETCONN_COPY );
+	    	    		osDelay(300);
+	    	    		result=1;
 	    	    	}
 	    	    }
-
+	    	   }
 	        }
-	        osDelay(1500);
-
+	        //close connection after it was used
+	        netconn_close(newconn);
+	        netconn_delete(newconn);
 	  }
 }
 /**
@@ -472,4 +480,3 @@ void assert_failed(uint8_t* file, uint32_t line)
 #endif
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
-
