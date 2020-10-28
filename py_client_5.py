@@ -1,26 +1,29 @@
 import socket
 import time
 
-s= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect(('192.168.0.10', 80))
+
 while True:
-    print("Now Reveiving")
-    time.sleep(2)
-    data = s.recv(16)
+    time.sleep(3)
+    s= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(('192.168.0.10', 80))
+    print("Now Receiving")
+    time.sleep(1)
+    data = s.recv(3)
     if data == b'ABC':   
-        print("Data=",data);
-        time.sleep(2)
+        print("Data Received=",data);
         print("Now Sending")
+        time.sleep(1)
         s.sendall(b'Hi')
         #s.sendall(b'No')
-        
-    else:
-        time.sleep(2)
-        print("Not Correct")
-        print("Data=",data);
-    #else:
-    #    print("Data is incorrect")
-    # %%   print("Data=",data);
-       
-    
-    
+        print("Now Receiving")
+        time.sleep(1)
+        data = s.recv(5)
+        if data == b'Hello':   
+            print("Data Received=",data, "Success");
+            time.sleep(1)
+            s.close()
+        else:
+            print("Error in Attestation")
+            print("Data Received=",data);
+            time.sleep(1)
+            
