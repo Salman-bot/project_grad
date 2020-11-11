@@ -1,4 +1,4 @@
-/** 
+/**
   *
   *  Portions COPYRIGHT 2016 STMicroelectronics
   *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
@@ -270,12 +270,30 @@ reset:
   /*
    * 8. Write the 200 Response
    */
+char data_stored[] = "Hello";
+  mbedtls_printf( "  > Write to client:" );
+len = sprintf( (char *) buf, data_stored, mbedtls_ssl_get_ciphersuite( &ssl ) );
 
+while( ( ret = mbedtls_ssl_write( &ssl, buf, len ) ) <= 0 )
+{
+  if( ret == MBEDTLS_ERR_NET_CONN_RESET )
+  {
+    mbedtls_printf( " failed\n  ! peer closed the connection\n\n" );
+    goto reset;
+  }
+
+  if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
+  {
+    mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
+    goto exit;
+  }
+}
 
   len = ret;
-  mbedtls_printf( " %d bytes written\n%s", len, (char *) buf );
+mbedtls_printf( " %d bytes written\n%s", len, (char *) buf );
 
-  mbedtls_printf( "  . Closing the connection..." );
+mbedtls_printf( "  . Closing the connection..." );
+
 
   while( ( ret = mbedtls_ssl_close_notify( &ssl ) ) < 0 )
   {
