@@ -1,4 +1,4 @@
- /** 
+/**
   *
   *  Portions COPYRIGHT 2016 STMicroelectronics
   *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
@@ -266,71 +266,37 @@ reset:
   /*
    * 7. Read the HTTP Request
    */
-  mbedtls_printf( "  < Read from client:" );
-  do
-  {
-    len = sizeof( buf ) - 1;
-    memset( buf, 0, sizeof( buf ) );
-    ret = mbedtls_ssl_read( &ssl, buf, len );
-
-    if( ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE )
-	{
-      continue;
-    }
-    if( ret <= 0 )
-    {
-      switch( ret )
-      {
-        case MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY:
-          mbedtls_printf( " connection was closed gracefully\n" );
-          break;
-
-        case MBEDTLS_ERR_NET_CONN_RESET:
-          mbedtls_printf( " connection was reset by peer\n" );
-          break;
-
-        default:
-          mbedtls_printf( " mbedtls_ssl_read returned -0x%x\n", -ret );
-          break;
-      }
-
-      break;
-    }
-
-    len = ret;
-    mbedtls_printf( " %d bytes read\n%s", len, (char *) buf );
-
-    if( ret > 0 )
-	{
-      break;
-	}
-  } while(1);
 
   /*
    * 8. Write the 200 Response
    */
+char data_stored[] = "Hello";
   mbedtls_printf( "  > Write to client:" );
-  len = sprintf( (char *) buf, HTTP_RESPONSE, mbedtls_ssl_get_ciphersuite( &ssl ) );
+len = sprintf( (char *) buf, data_stored, mbedtls_ssl_get_ciphersuite( &ssl ) );
 
-  while( ( ret = mbedtls_ssl_write( &ssl, buf, len ) ) <= 0 )
+while( ( ret = mbedtls_ssl_write( &ssl, buf, len ) ) <= 0 )
+{
+  if( ret == MBEDTLS_ERR_NET_CONN_RESET )
   {
-    if( ret == MBEDTLS_ERR_NET_CONN_RESET )
-    {
-      mbedtls_printf( " failed\n  ! peer closed the connection\n\n" );
-      goto reset;
-    }
-
-    if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
-    {
-      mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
-      goto exit;
-    }
+    mbedtls_printf( " failed\n  ! peer closed the connection\n\n" );
+    goto reset;
   }
 
-  len = ret;
-  mbedtls_printf( " %d bytes written\n%s", len, (char *) buf );
+  if( ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE )
+  {
+    mbedtls_printf( " failed\n  ! mbedtls_ssl_write returned %d\n\n", ret );
+    goto exit;
+  }
+}
 
-  mbedtls_printf( "  . Closing the connection..." );
+
+
+
+  len = ret;
+mbedtls_printf( " %d bytes written\n%s", len, (char *) buf );
+
+mbedtls_printf( "  . Closing the connection..." );
+
 
   while( ( ret = mbedtls_ssl_close_notify( &ssl ) ) < 0 )
   {
